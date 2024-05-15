@@ -406,7 +406,7 @@ public:
     }
 };
 
-void AddSC_npc_dreamwalker_helper()
+void AdddwhelperScripts()
 {
     new npc_dreamwalker_helper();
     new npc_DW_Helper();
