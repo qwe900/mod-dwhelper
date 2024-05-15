@@ -39,7 +39,7 @@ enum Spells
 class npc_dreamwalker_helper : public CreatureScript
 {
 public:
-    npc_dreamwalker_helper() : CreatureScript("npc_dreamwalker_helper") { }
+    npc_dreamwalker_helper() : CreatureScript("npc_dreamwalker_helper_chooser") { }
 
     bool OnGossipHello(Player* player, Creature* creature) override
     {
@@ -120,7 +120,7 @@ public:
 class npc_DW_Helper : public CreatureScript
 {
 public:
-    npc_DW_Helper() : CreatureScript("npc_DW_Helper") {}
+    npc_DW_Helper() : CreatureScript("npc_DW_Helper_Paladin") {}
 
     struct npc_DW_HelperAI : public ScriptedAI
     {
