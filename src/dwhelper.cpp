@@ -4,6 +4,8 @@
 #include "Creature.h"
 #include "ScriptedGossip.h"
 #include "ScriptedCreature.h"
+#include "SpellScript.h"
+#include "SpellScriptLoader.h"
 
 enum DreamwalkerHealer
 {
@@ -32,7 +34,8 @@ enum Spells
     SPELL_LAY_ON_HANDS = 48788, 
     SPELL_DIVINE_FAVOR = 20216, 
     SPELL_DIVINE_ILLUMINATION = 31842, 
-    SPELL_HAND_OF_SACRIFICE = 6940, 
+    SPELL_HAND_OF_SACRIFICE = 6940,
+    AURA_DREAMSTATE = 70766,
 
 };
 
@@ -148,7 +151,7 @@ public:
         bool inVoid = false;
         bool _portalfound = false;
         bool OnMovement = false;
-        bool meIsActive = false;
+        bool meIsInCombat = false;
         EventMap _events;
         InstanceScript* _instance;
         enum Events
@@ -176,12 +179,10 @@ public:
             Unit* lowestHpUnit = nullptr;
             float lowestHpPct = 101.0f;
 
-            // Iterate through all players in the map
             for (auto const& ref : me->GetMap()->GetPlayers())
             {
                 Player* player = ref.GetSource();
 
-                // Skip invalid, dead, or unfriendly players
                 if (!player || player->isDead() || !me->IsWithinDistInMap(player, range) || !me->IsFriendlyTo(player))
                     continue;
 
@@ -193,26 +194,22 @@ public:
                 }
             }
 
-            // Check Paladin's health as well
             if (me->GetHealthPct() < lowestHpPct)
             {
                 lowestHpPct = me->GetHealthPct();
                 lowestHpUnit = me;
             }
 
-            // If no friendly players or Paladin were found, try to find the nearest Dreamwalker and heal it instead
-            if (lowestHpUnit->GetHealthPct() > 90)
+            if (lowestHpUnit == nullptr || lowestHpUnit->GetHealthPct() > 90)
             {
                 Creature* dreamwalker = me->FindNearestCreature(NPC_VALITHRIA_DREAMWALKER, 150.0f);
 
-                // Check that a valid Dreamwalker was found and that it's not already at full health
                 if (dreamwalker && dreamwalker->GetHealthPct() < 100.0f)
                 {
                     lowestHpUnit = dreamwalker->ToUnit();
                 }
             }
 
-            // If no valid target was found, heal the NPC itself
             if (lowestHpUnit == nullptr)
             {
                 lowestHpUnit = me;
@@ -220,15 +217,20 @@ public:
 
             return lowestHpUnit;
         }
-        void DoAction(int32 action) override
-        {
-            if (action == ACTION_ENTER_COMBAT)
-            {
-                _instance->SendEncounterUnit(ENCOUNTER_FRAME_ENGAGE, me);
-                _events.Reset();
 
-            }
+        void JustEngagedWith(Unit* target) override
+        {
+      
+
+            me->setActive(true);
+            me->SetInCombatWithZone();
+            meIsInCombat = true;
+            _instance->SendEncounterUnit(ENCOUNTER_FRAME_ENGAGE, me);
+          
+
+            
         }
+
         void MovementInform(uint32 type, uint32 id) override
         {
             if (type != POINT_MOTION_TYPE)
@@ -242,7 +244,16 @@ public:
             }
 
         }
+    
 
+        void CastEnhancedHealSpell(Unit* target, uint32 spellId)
+        {
+            if (!target)
+                return;
+
+            // Cast the spell normally to respect the cast time
+            me->CastSpell(target, spellId, false);
+        }
 
         void UpdateAI(uint32 diff) override
         {
@@ -270,7 +281,7 @@ public:
                     break;
                 }
                 case EVENT_SEARCH_NEXT_TARGET:
-                    if (me->HasAura(70766))
+                    if (me->HasAura(AURA_DREAMSTATE))
                     {
                         me->SetDisableGravity(true);
                         // Find the nearest creature with entry 37985 or 38421
@@ -313,20 +324,19 @@ public:
 
                     // Cast Holy Shock on cooldown
                     if (!me->HasSpellCooldown(SPELL_HOLY_SHOCK)) {
-                        // me->Yell("Holy Shock", LANG_UNIVERSAL);
-                        me->CastSpell(target, SPELL_HOLY_SHOCK, false);
-                        me->AddSpellCooldown(SPELL_HOLY_SHOCK, 0, 6000);
+                        CastEnhancedHealSpell(target,SPELL_HOLY_SHOCK);
+                       me->AddSpellCooldown(SPELL_HOLY_SHOCK, 0, 8000);
                     }
                     if (!OnMovement) {
                         if (!me->HasSpellCooldown(SPELL_FLASH_OF_LIGHT)) {
-                            // me->Yell("Flash of Light", LANG_UNIVERSAL);
-                            me->CastSpell(target, SPELL_FLASH_OF_LIGHT, false);
+                             me->Yell("Flash of Light", LANG_UNIVERSAL);
+                            CastEnhancedHealSpell(target, SPELL_FLASH_OF_LIGHT);
                             me->AddSpellCooldown(SPELL_FLASH_OF_LIGHT, 0, 7000);
                         }
 
                         //cast holy light on dw if other spells has cooldowns
 
-                        me->CastSpell(target, SPELL_HOLY_LIGHT, false);
+                        CastEnhancedHealSpell(target, SPELL_HOLY_LIGHT);
                         // me->Yell("Holy Light", LANG_UNIVERSAL);
 
 
@@ -399,7 +409,45 @@ public:
 
 
     };
+    class spell_increase_heal : public SpellScriptLoader
+    {
+    public:
+        spell_increase_heal() : SpellScriptLoader("spell_increase_heal") { }
 
+        class spell_increase_heal_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_increase_heal_SpellScript);
+
+            void HandleAfterHit()
+            {
+                Unit* target = GetHitUnit();
+                if (!target)
+                    return;
+
+                int32 heal = GetHitHeal();
+                heal *= 4; // Increase healing by 400%
+                SetHitHeal(heal);
+            }
+
+            void Register() override
+            {
+                AfterHit += SpellHitFn(spell_increase_heal_SpellScript::HandleAfterHit);
+            }
+        };
+
+        SpellScript* GetSpellScript() const override
+        {
+            return new spell_increase_heal_SpellScript();
+        }
+    };
+
+    // In your script registration function
+
+
+    void AddSC_spell_increase_heal()
+    {
+        new spell_increase_heal();
+    }
     CreatureAI* GetAI(Creature* creature) const override
     {
         return new npc_DW_HelperAI(creature);
@@ -410,4 +458,6 @@ void AdddwhelperScripts()
 {
     new npc_dreamwalker_helper();
     new npc_DW_Helper();
+   
+   
 }
