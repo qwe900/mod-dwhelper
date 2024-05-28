@@ -23,7 +23,6 @@ enum Actions
 
 enum Spells
 {
-    // Class Paladin 
     SPELL_BEACON_OF_LIGHT = 53563,
     SPELL_HOLY_LIGHT = 48782,
     SPELL_FLASH_OF_LIGHT = 48785,
@@ -73,7 +72,7 @@ public:
         case GOSSIP_ACTION_INFO_DEF + 1:
             helperEntry = 650001;
             break;
-        case GOSSIP_ACTION_INFO_DEF + 2: //second healer is not implemented yet
+        case GOSSIP_ACTION_INFO_DEF + 2: // second healer is not implemented yet
             helperEntry = 650001;
             break;
         default:
@@ -120,9 +119,9 @@ public:
         }
 
         std::vector<std::string> randomTexts = {
-            "Hodor ! Hold The Door!",
-            "I am going to stack up , please Protect Dreamwalker",
-            "PAW PAW PAW PAW PATROL !",
+            "Hodor! Hold The Door!",
+            "I am going to stack up, please Protect Dreamwalker",
+            "PAW PAW PAW PAW PATROL!",
             "Life is like a box of chocolates. You never know what you're gonna get.",
             "May the Force be with you."
         };
@@ -343,7 +342,7 @@ public:
                 }
             }
 
-            if (me->HasAura(70766))
+            if (me->HasAura(AURA_DREAMSTATE))
             {
                 _events.ScheduleEvent(EVENT_SEARCH_NEXT_TARGET, 2500ms);
             }
@@ -352,7 +351,7 @@ public:
                 inVoid = false;
             }
 
-            if (!me->HasAura(70766) && me->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE && !_portalfound)
+            if (!me->HasAura(AURA_DREAMSTATE) && me->GetMotionMaster()->GetCurrentMovementGeneratorType() != FOLLOW_MOTION_TYPE && !_portalfound)
             {
                 GoToStandardPosition();
                 me->SetReactState(REACT_DEFENSIVE);
